@@ -15,6 +15,7 @@ import {
 import {
   FormattedMessage,
   Helmet,
+  history,
   SelectLang,
   useIntl,
   useModel,
@@ -24,8 +25,8 @@ import { createStyles } from 'antd-style';
 import React, { useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Footer } from '@/components';
-import { login } from '@/services/ant-design-pro/api';
 import { getFakeCaptcha } from '@/services/ant-design-pro/login';
+import { getSupabaseClient } from '@/services/supabase/client';
 import Settings from '../../../../config/defaultSettings';
 
 const useStyles = createStyles(({ token }) => {
@@ -132,9 +133,27 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (values: API.LoginParams) => {
     try {
-      // 登录
-      const msg = await login({ ...values, type });
-      if (msg.status === 'ok') {
+      if (type !== 'account') {
+        message.info('暂不支持手机号登录');
+        return;
+      }
+
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        message.error(
+          'Supabase 未配置：请设置 SUPABASE_URL 与 SUPABASE_ANON_KEY',
+        );
+        return;
+      }
+
+      const email = values.username?.trim() || '';
+      const password = values.password || '';
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (!error) {
         const defaultLoginSuccessMessage = intl.formatMessage({
           id: 'pages.login.success',
           defaultMessage: '登录成功！',
@@ -142,18 +161,16 @@ const Login: React.FC = () => {
         message.success(defaultLoginSuccessMessage);
         await fetchUserInfo();
         const urlParams = new URL(window.location.href).searchParams;
-        window.location.href = urlParams.get('redirect') || '/';
+        history.push(urlParams.get('redirect') || '/dashboard/analysis');
         return;
       }
-      console.log(msg);
-      // 如果失败去设置用户错误信息
-      setUserLoginState(msg);
-    } catch (error) {
+      setUserLoginState({ status: 'error', type });
+      message.error(error.message);
+    } catch (_error) {
       const defaultLoginFailureMessage = intl.formatMessage({
         id: 'pages.login.failure',
         defaultMessage: '登录失败，请重试！',
       });
-      console.log(error);
       message.error(defaultLoginFailureMessage);
     }
   };
@@ -184,9 +201,9 @@ const Login: React.FC = () => {
           }}
           logo={<img alt="logo" src="/logo.svg" />}
           title="Ant Design"
-          subTitle={intl.formatMessage({
-            id: 'pages.layouts.userLayout.title',
-          })}
+          // subTitle={intl.formatMessage({
+          //   id: 'pages.layouts.userLayout.title',
+          // })}
           initialValues={{
             autoLogin: true,
           }}
@@ -242,7 +259,7 @@ const Login: React.FC = () => {
                 }}
                 placeholder={intl.formatMessage({
                   id: 'pages.login.username.placeholder',
-                  defaultMessage: '用户名: admin or user',
+                  defaultMessage: '',
                 })}
                 rules={[
                   {
@@ -264,7 +281,7 @@ const Login: React.FC = () => {
                 }}
                 placeholder={intl.formatMessage({
                   id: 'pages.login.password.placeholder',
-                  defaultMessage: '密码: ant.design',
+                  defaultMessage: '',
                 })}
                 rules={[
                   {

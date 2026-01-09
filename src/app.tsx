@@ -11,7 +11,7 @@ import {
   Question,
   SelectLang,
 } from '@/components';
-import { currentUser as queryCurrentUser } from '@/services/ant-design-pro/api';
+import { getSupabaseClient } from '@/services/supabase/client';
 import defaultSettings from '../config/defaultSettings';
 import { errorConfig } from './requestErrorConfig';
 import '@ant-design/v5-patch-for-react-19';
@@ -30,10 +30,26 @@ export async function getInitialState(): Promise<{
 }> {
   const fetchUserInfo = async () => {
     try {
-      const msg = await queryCurrentUser({
-        skipErrorHandler: true,
-      });
-      return msg.data;
+      const supabase = getSupabaseClient();
+      if (!supabase) return undefined;
+
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user) return undefined;
+
+      const { user } = data;
+      const name =
+        user.user_metadata?.name ||
+        user.user_metadata?.full_name ||
+        user.email ||
+        user.id;
+
+      return {
+        userid: user.id,
+        email: user.email,
+        name,
+        avatar: user.user_metadata?.avatar_url,
+        access: user.app_metadata?.role || 'user',
+      };
     } catch (_error) {
       history.push(loginPath);
     }

@@ -1,16 +1,27 @@
-﻿// @ts-ignore
 import { startMock } from '@@/requestRecordMock';
 import { TestBrowser } from '@@/testBrowser';
-import { fireEvent, render } from '@testing-library/react';
-import React, { act } from 'react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
+import * as React from 'react';
+import { act } from 'react';
 
-const waitTime = (time: number = 100) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(true);
-    }, time);
-  });
-};
+jest.mock('@/services/supabase/client', () => {
+  const user = {
+    id: 'test-user-id',
+    email: 'admin@example.com',
+    user_metadata: { name: 'Admin' },
+    app_metadata: { role: 'user' },
+  };
+
+  return {
+    getSupabaseClient: () => ({
+      auth: {
+        signInWithPassword: async () => ({ data: { user }, error: null }),
+        getUser: async () => ({ data: { user }, error: null }),
+        signOut: async () => ({ error: null }),
+      },
+    }),
+  };
+});
 
 let server: {
   close: () => void;
@@ -88,14 +99,13 @@ describe('Login Page', () => {
 
     await (await rootContainer.findByText('Login')).click();
 
-    // 等待接口返回结果
-    await waitTime(5000);
-
-    await rootContainer.findAllByText('Ant Design Pro');
+    await waitFor(() => {
+      expect(historyRef.current?.location?.pathname).toBe(
+        '/dashboard/analysis',
+      );
+    });
 
     expect(rootContainer.asFragment()).toMatchSnapshot();
-
-    await waitTime(2000);
 
     rootContainer.unmount();
   });

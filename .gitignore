@@ -14,6 +14,11 @@ _roadhog-api-doc
 npm-debug.log*
 yarn-error.log
 
+# env
+.env
+.env.local
+.env.*.local
+
 /coverage
 .idea
 yarn.lock
