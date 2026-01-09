@@ -201,9 +201,7 @@ const Login: React.FC = () => {
           }}
           logo={<img alt="logo" src="/logo.svg" />}
           title="Ant Design"
-          // subTitle={intl.formatMessage({
-          //   id: 'pages.layouts.userLayout.title',
-          // })}
+          subTitle={process.env.SUPABASE_ANON_KEY}
           initialValues={{
             autoLogin: true,
           }}
