@@ -37,17 +37,31 @@ export async function getInitialState(): Promise<{
       if (error || !data.user) return undefined;
 
       const { user } = data;
-      const name =
+      let name =
         user.user_metadata?.name ||
         user.user_metadata?.full_name ||
         user.email ||
         user.id;
+      let avatar = user.user_metadata?.avatar_url;
+
+      try {
+        const { data: rows, error: infoErr } = await supabase
+          .from('tb_user_info')
+          .select('name,avatar,created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (!infoErr && Array.isArray(rows) && rows.length > 0) {
+          name = rows[0]?.name || name;
+          avatar = rows[0]?.avatar || avatar;
+        }
+      } catch {}
 
       return {
         userid: user.id,
         email: user.email,
         name,
-        avatar: user.user_metadata?.avatar_url,
+        avatar,
         access: user.app_metadata?.role || 'user',
       };
     } catch (_error) {
