@@ -19,25 +19,60 @@ export async function queryCurrent(): Promise<{ data: CurrentUser }> {
         return {
           data: {
             userid: user.id,
-            name: data.name,
-            avatar: data.avatar,
+            name: data.name || '',
+            avatar: data.avatar || '',
             email: data.email || user.email || '',
-            signature: data.signature,
-            title: data.title,
-            group: data.group,
+            signature: data.signature || '',
+            title: data.title || '',
+            group: data.group || '',
             tags: data.tags || [],
-            notifyCount: data.notify_count,
-            unreadCount: data.unread_count,
-            country: data.country,
-            geographic: data.geographic,
-            address: data.address,
-            phone: data.phone,
+            notifyCount: data.notify_count || 0,
+            unreadCount: data.unread_count || 0,
+            country: data.country || '',
+            geographic: data.geographic || {
+              province: { label: '', key: '' },
+              city: { label: '', key: '' },
+            },
+            address: data.address || '',
+            phone: data.phone || '',
             notice: [],
           } as CurrentUser,
         };
       }
     }
   }
+
+  // Return empty structure for new users instead of fallback to mock
+  if (supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      return {
+        data: {
+          userid: user.id,
+          name: '',
+          avatar: '',
+          email: user.email || '',
+          signature: '',
+          title: '',
+          group: '',
+          tags: [],
+          notifyCount: 0,
+          unreadCount: 0,
+          country: '',
+          geographic: {
+            province: { label: '', key: '' },
+            city: { label: '', key: '' },
+          },
+          address: '',
+          phone: '',
+          notice: [],
+        } as CurrentUser,
+      };
+    }
+  }
+
   return request('/api/accountSettingCurrentUser');
 }
 
