@@ -183,6 +183,12 @@ export default [
     ],
   },
   {
+    name: 'family-tracks',
+    icon: 'HeatMapOutlined',
+    path: '/family-tracks',
+    component: './family-tracks',
+  },
+  {
     name: 'result',
     icon: 'CheckCircleOutlined',
     path: '/result',

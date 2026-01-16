@@ -177,7 +177,7 @@ const BaseView: React.FC = () => {
       message.success('更新基本信息成功');
     } catch (error: any) {
       console.error('Update failed:', error);
-      message.error('更新失败: ' + (error.message || '未知错误'));
+      message.error(`更新失败: ${error.message || '未知错误'}`);
     }
   };
   return (
