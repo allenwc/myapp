@@ -1,6 +1,6 @@
 import { PageContainer, ProCard } from '@ant-design/pro-components';
 import dayjs from 'dayjs';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BaseMap from './components/BaseMap';
 import LocationMarkers from './components/LocationMarkers';
 import PlaybackControl from './components/PlaybackControl';
@@ -14,6 +14,8 @@ import {
 } from './service';
 import type { FamilyMember, Point, Track, VisibleTrack } from './types';
 
+const ENABLE_INITIAL_AUTOFIT = false;
+
 const FamilyTracks: React.FC = () => {
   const [currentDayOffset, setCurrentDayOffset] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -25,6 +27,7 @@ const FamilyTracks: React.FC = () => {
 
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [scene, setScene] = useState<any>(null);
+  const didInitialAutoFitRef = useRef(false);
 
   // Calculate time range based on tracks data
   const { startDate, totalDays } = useMemo(() => {
@@ -388,6 +391,46 @@ const FamilyTracks: React.FC = () => {
     () => currentPositions.filter((g) => g.type === 'moving'),
     [currentPositions],
   );
+
+  useEffect(() => {
+    if (!scene || !ENABLE_INITIAL_AUTOFIT) return;
+    if (didInitialAutoFitRef.current) return;
+
+    const points = [...stationaryPositions, ...movingPositions].map((p) => [
+      p.lng,
+      p.lat,
+    ]);
+    if (points.length === 0) return;
+
+    didInitialAutoFitRef.current = true;
+
+    let minLng = points[0][0];
+    let maxLng = points[0][0];
+    let minLat = points[0][1];
+    let maxLat = points[0][1];
+
+    points.forEach(([lng, lat]) => {
+      minLng = Math.min(minLng, lng);
+      maxLng = Math.max(maxLng, lng);
+      minLat = Math.min(minLat, lat);
+      maxLat = Math.max(maxLat, lat);
+    });
+
+    if (minLng === maxLng && minLat === maxLat) {
+      scene.setZoomAndCenter(8, [minLng, minLat]);
+      return;
+    }
+
+    scene.fitBounds(
+      [
+        [minLng, minLat],
+        [maxLng, maxLat],
+      ],
+      {
+        padding: { top: 120, right: 40, bottom: 40, left: 40 },
+      },
+    );
+  }, [scene, stationaryPositions, movingPositions]);
 
   // Playback timer with variable speed
   useEffect(() => {

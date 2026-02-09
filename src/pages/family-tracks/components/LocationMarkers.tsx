@@ -20,6 +20,8 @@ const LocationMarkers: React.FC<LocationMarkersProps> = ({
   const stationaryLayerRef = useRef<any | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const [imagesLoaded, setImagesLoaded] = useState(false);
+  const pointIconSize = 20;
+  const popupOffsetY = -pointIconSize / 2;
 
   // Load Resources
   useEffect(() => {
@@ -58,7 +60,7 @@ const LocationMarkers: React.FC<LocationMarkersProps> = ({
             parser: { type: 'json', coordinates: 'coords' },
           })
           .shape('location-marker')
-          .size(20)
+          .size(pointIconSize)
           .style({
             opacity: 1,
             zIndex: 20,
@@ -88,7 +90,7 @@ const LocationMarkers: React.FC<LocationMarkersProps> = ({
         alignItems: 'center',
         filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))', // Apply shadow to the whole container to merge bubble and arrow
         position: 'relative',
-        paddingBottom: '5px', // Reserve space for arrow (6px height - 1px overlap)
+        paddingBottom: '6px',
       });
 
       const bubble = document.createElement('div');
@@ -125,9 +127,9 @@ const LocationMarkers: React.FC<LocationMarkersProps> = ({
 
       const marker = new Marker({
         anchor: 'bottom',
-        offset: [0, 0], // Offset to clear the point icon
+        offset: [0, popupOffsetY],
       } as any)
-        .setLnglat([group.lng, group.lat] as any)
+        .setLnglat([group.lng, group.lat, group.alt] as any)
         .setElement(container);
 
       scene.addMarker(marker);

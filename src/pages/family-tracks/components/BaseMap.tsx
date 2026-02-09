@@ -10,11 +10,14 @@ interface BaseMapProps {
 
 const BaseMap: React.FC<BaseMapProps> = ({ onSceneLoaded, children }) => {
   const sceneRef = useRef<Scene | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const resizeRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     // If scene already exists, don't recreate
     if (sceneRef.current) return;
 
+    const mapEl = document.getElementById('map');
     const scene = new Scene({
       id: 'map',
       map: new L7Map({
@@ -26,7 +29,28 @@ const BaseMap: React.FC<BaseMapProps> = ({ onSceneLoaded, children }) => {
     });
     sceneRef.current = scene;
 
+    const resizeMap = () => {
+      const rawMap = scene.getMapService().map as any;
+      if (rawMap && typeof rawMap.resize === 'function') rawMap.resize();
+      scene.render();
+    };
+
     scene.on('loaded', () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
+      if (mapEl && typeof ResizeObserver !== 'undefined') {
+        const observer = new ResizeObserver(() => {
+          if (resizeRafRef.current) cancelAnimationFrame(resizeRafRef.current);
+          resizeRafRef.current = requestAnimationFrame(() => {
+            resizeMap();
+          });
+        });
+        observer.observe(mapEl);
+        resizeObserverRef.current = observer;
+      }
+
       // Load World Data
       const source = new RDBSource({
         version: '2023',
@@ -60,10 +84,22 @@ const BaseMap: React.FC<BaseMapProps> = ({ onSceneLoaded, children }) => {
 
           // Notify parent that scene is ready and base layers are loaded
           onSceneLoaded(scene);
+
+          requestAnimationFrame(() => {
+            resizeMap();
+            requestAnimationFrame(() => {
+              resizeMap();
+            });
+          });
         });
     });
 
     return () => {
+      if (resizeRafRef.current) cancelAnimationFrame(resizeRafRef.current);
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
       scene.destroy();
       sceneRef.current = null;
     };
