@@ -19,6 +19,21 @@ const ENABLE_INITIAL_AUTOFIT = false;
 const FamilyTracks: React.FC = () => {
   const [currentDayOffset, setCurrentDayOffset] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [overlay, setOverlay] = useState<{
+    title: string;
+    description: string;
+    date: string;
+    type: 'departure' | 'arrival' | 'birth' | 'death' | 'other';
+    personName?: string;
+    personColor?: string;
+    personEmoji?: string;
+    fromCity?: string;
+    toCity?: string;
+    reason?: string;
+  } | null>(null);
+  const [overlayVisible, setOverlayVisible] = useState(false);
+  const overlayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const overlayProcessingRef = useRef(false);
 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -472,10 +487,116 @@ const FamilyTracks: React.FC = () => {
             d.isSame(nextDateLimit, 'day'),
         );
 
-        if (upcomingEvent) {
-          // Jump exactly to the event date so next tick catches the activity
+        if (upcomingEvent && !overlayProcessingRef.current) {
+          const dateStr = upcomingEvent.format('YYYY-MM-DD');
+          const startEv = tracks.find(
+            (t) =>
+              selectedMembers.includes(t.person) &&
+              dayjs(t.startDate).isSame(upcomingEvent, 'day'),
+          );
+          const endEv = tracks.find(
+            (t) =>
+              selectedMembers.includes(t.person) &&
+              dayjs(t.endDate).isSame(upcomingEvent, 'day'),
+          );
+          const birthEv = familyMembers.find(
+            (m) =>
+              selectedMembers.includes(m.name) &&
+              m.birthDate &&
+              dayjs(m.birthDate).isSame(upcomingEvent, 'day'),
+          );
+          const deathEv = familyMembers.find(
+            (m) =>
+              selectedMembers.includes(m.name) &&
+              m.deathDate &&
+              dayjs(m.deathDate).isSame(upcomingEvent, 'day'),
+          );
+          let title = '事件';
+          let description = `日期：${dateStr}`;
+          let type: 'departure' | 'arrival' | 'birth' | 'death' | 'other' =
+            'other';
+          let personName = '';
+          let personColor = '#666';
+          let personEmoji = '';
+          let fromCity = '';
+          let toCity = '';
+          let reason = '';
+
+          if (startEv) {
+            title = '出发';
+            type = 'departure';
+            personName = startEv.person;
+            description = `即将发生：${startEv.person} 从 ${startEv.from} 前往 ${startEv.to}`;
+            fromCity = startEv.from;
+            toCity = startEv.to;
+            reason = startEv.reason;
+            const m = memberByName.get(startEv.person);
+            if (m) {
+              personColor = m.color;
+              personEmoji = m.emoji;
+            }
+          } else if (endEv) {
+            title = '到达';
+            type = 'arrival';
+            personName = endEv.person;
+            description = `即将发生：${endEv.person} 抵达 ${endEv.to}`;
+            toCity = endEv.to;
+            const m = memberByName.get(endEv.person);
+            if (m) {
+              personColor = m.color;
+              personEmoji = m.emoji;
+            }
+          } else if (birthEv) {
+            title = '出生';
+            type = 'birth';
+            personName = birthEv.name;
+            description = `即将发生：${birthEv.name} 出生`;
+            personColor = birthEv.color;
+            personEmoji = birthEv.emoji;
+          } else if (deathEv) {
+            title = '离世';
+            type = 'death';
+            personName = deathEv.name;
+            description = `即将发生：${deathEv.name} 离世`;
+            personColor = deathEv.color;
+            personEmoji = deathEv.emoji;
+          }
+
+          setIsPlaying(false);
+          setOverlay({
+            title,
+            description,
+            date: dateStr,
+            type,
+            personName,
+            personColor,
+            personEmoji,
+            fromCity,
+            toCity,
+            reason,
+          });
+          setOverlayVisible(true);
+          const daysToEvent = Math.max(
+            upcomingEvent.diff(currentDate, 'day', true),
+            PLAYBACK_SPEED.SLOW,
+          );
+          overlayProcessingRef.current = true;
+          if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+          overlayTimerRef.current = setTimeout(() => {
+            setOverlayVisible(false);
+            setCurrentDayOffset((prev) => {
+              const next = prev + daysToEvent;
+              return next > totalDays ? totalDays : next;
+            });
+            setTimeout(() => {
+              setOverlay(null);
+              setIsPlaying(true);
+              overlayProcessingRef.current = false;
+            }, 800);
+          }, 1200);
+          return;
+        } else if (upcomingEvent) {
           const daysToEvent = upcomingEvent.diff(currentDate, 'day', true);
-          // Ensure we move forward at least a small amount to avoid getting stuck if diff is tiny
           step = Math.max(daysToEvent, PLAYBACK_SPEED.SLOW);
         }
       }
@@ -539,6 +660,145 @@ const FamilyTracks: React.FC = () => {
         gutter={[0, 16]}
         style={{ height: '80vh', position: 'relative' }}
       >
+        {overlay && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 300,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.6)',
+              opacity: overlayVisible ? 1 : 0,
+              transition: 'opacity 0.8s ease',
+              pointerEvents: overlayVisible ? 'auto' : 'none',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            <div
+              style={{
+                background: '#fff',
+                borderRadius: 24,
+                padding: '32px 48px',
+                textAlign: 'center',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+                minWidth: 360,
+                transform: overlayVisible ? 'scale(1)' : 'scale(0.9)',
+                transition:
+                  'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                border: `4px solid ${overlay.personColor || '#1890ff'}`,
+                position: 'relative',
+              }}
+            >
+              {/* Date Badge */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: -20,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: overlay.personColor || '#1890ff',
+                  color: '#fff',
+                  padding: '6px 20px',
+                  borderRadius: 20,
+                  fontSize: 16,
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                }}
+              >
+                {overlay.date}
+              </div>
+
+              {/* Event Type */}
+              <div
+                style={{
+                  color: '#888',
+                  fontSize: 14,
+                  textTransform: 'uppercase',
+                  letterSpacing: 2,
+                  marginTop: 8,
+                  marginBottom: 16,
+                  fontWeight: 600,
+                }}
+              >
+                {overlay.title}
+              </div>
+
+              {/* Avatar/Emoji */}
+              <div
+                style={{
+                  fontSize: 80,
+                  lineHeight: 1,
+                  marginBottom: 16,
+                  textShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                  animation: overlayVisible ? 'bounce 1s infinite' : 'none',
+                }}
+              >
+                {overlay.personEmoji || '📅'}
+              </div>
+
+              {/* Person Name */}
+              <div
+                style={{
+                  fontSize: 32,
+                  fontWeight: 800,
+                  color: '#333',
+                  marginBottom: 8,
+                }}
+              >
+                {overlay.personName || 'Unknown'}
+              </div>
+
+              {/* Action Description */}
+              <div
+                style={{
+                  fontSize: 20,
+                  color: '#555',
+                  marginTop: 16,
+                  lineHeight: 1.5,
+                }}
+              >
+                {overlay.type === 'departure' && (
+                  <>
+                    从{' '}
+                    <span style={{ color: '#000', fontWeight: 600 }}>
+                      {overlay.fromCity}
+                    </span>{' '}
+                    前往{' '}
+                    <span style={{ color: '#000', fontWeight: 600 }}>
+                      {overlay.toCity}
+                    </span>
+                  </>
+                )}
+                {overlay.type === 'arrival' && (
+                  <>
+                    抵达{' '}
+                    <span style={{ color: '#000', fontWeight: 600 }}>
+                      {overlay.toCity}
+                    </span>
+                  </>
+                )}
+                {overlay.type === 'birth' && '诞生于世'}
+                {overlay.type === 'death' && '离世'}
+              </div>
+
+              {/* Extra Info (Reason) */}
+              {overlay.reason && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    fontSize: 16,
+                    color: '#888',
+                    fontStyle: 'italic',
+                  }}
+                >
+                  "{overlay.reason}"
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {loadError && (
           <div
             style={{

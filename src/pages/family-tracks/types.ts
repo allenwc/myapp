@@ -1,14 +1,19 @@
 export interface FamilyMember {
+  id: string;
   name: string;
   color: string;
   emoji: string;
   residenceCity?: string;
   birthDate?: string;
   deathDate?: string;
+  sort: number;
+  isActive: boolean;
 }
 
 export interface Track {
-  person: string;
+  id: string;
+  memberId: string;
+  person: string; // member name, joined
   from: string;
   to: string;
   startDate: string; // YYYY-MM-DD

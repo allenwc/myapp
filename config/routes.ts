@@ -186,7 +186,27 @@ export default [
     name: 'family-tracks',
     icon: 'HeatMapOutlined',
     path: '/family-tracks',
-    component: './family-tracks',
+    routes: [
+      {
+        path: '/family-tracks',
+        redirect: '/family-tracks/display',
+      },
+      {
+        name: 'display',
+        path: '/family-tracks/display',
+        component: './family-tracks',
+      },
+      {
+        name: 'members',
+        path: '/family-tracks/members',
+        component: './family-tracks/Members',
+      },
+      {
+        name: 'tracks',
+        path: '/family-tracks/tracks',
+        component: './family-tracks/Tracks',
+      },
+    ],
   },
   {
     name: 'result',
